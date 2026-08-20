@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "collection_id": "HIST-PILOT-2026A",
+  "status": "PILOT_ONLY",
+  "provider": "zzshare-0.4.9",
+  "group_count": 4,
+  "market": {
+    "start_date": "2026-06-01",
+    "end_date": "2026-07-10",
+    "venues": ["SH", "SZ"],
+    "max_calendar_days_per_entry": 35
+  },
+  "financial": {
+    "tables": ["indicator"],
+    "periods": ["2025q3", "2025q4"],
+    "max_periods_per_entry": 8
+  }
+}
