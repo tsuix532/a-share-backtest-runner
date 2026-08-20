@@ -56,7 +56,7 @@ class FakeProvider:
                 "high": 11,
                 "low": 9,
                 "close": 10.5,
-                "pre_close": 10,
+                "prev_close": 10,
                 "volume": 10000,
                 "turnover": 105000,
                 "turnover_rate": 1.2,
@@ -76,6 +76,8 @@ class FakeProvider:
                 "volume": 0,
                 "is_paused": 1,
                 "is_st": 1,
+                "high_limit": 0,
+                "low_limit": 0,
             },
         ]
 
@@ -120,6 +122,9 @@ class DataContractAndWorkerTests(unittest.TestCase):
         self.assertEqual(result["rows"][0]["total_market_cap"], 900.0)
         self.assertFalse(result["rows"][0]["tradable"])
         self.assertTrue(result["rows"][0]["is_st"])
+        self.assertIsNone(result["rows"][0]["limit_up"])
+        self.assertIsNone(result["rows"][0]["limit_down"])
+        self.assertEqual(result["rows"][1]["pre_close"], 10.0)
 
     def test_calendar_accepts_a_plain_date_list(self) -> None:
         class ListCalendarProvider(FakeProvider):

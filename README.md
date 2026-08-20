@@ -24,12 +24,14 @@ while an optional `ZZSHARE_TOKEN` repository secret may raise provider limits.
 Real Provider Smoke builds its generic request inside GitHub Actions, runs one
 bounded market date and one financial period across the same four-group
 contract, and uploads ciphertext only. A merge touching the smoke definition
-triggers it automatically on main; later reruns may use workflow dispatch.
+triggers it automatically through the owner PR and on main; later reruns may
+use workflow dispatch.
 
 ## Security boundary
 
-- Owner and `main` only; sealed batches use manual dispatch, while the bounded
-  provider smoke also runs automatically when its definition changes on main.
+- Owner-controlled same-repository PR or `main` only; sealed batches use
+  manual dispatch, while the bounded provider smoke also runs automatically
+  when its definition changes.
 - Read-only workflow token and immutable action pins.
 - Plaintext exists only in runner memory/ephemeral disk.
 - Logs contain job id, group, case count and status only.

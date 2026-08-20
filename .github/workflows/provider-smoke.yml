@@ -2,6 +2,12 @@ name: Real Provider Smoke
 
 on:
   workflow_dispatch:
+  pull_request:
+    paths:
+      - ".github/workflows/provider-smoke.yml"
+      - "config/provider_smoke_v1.json"
+      - "public_runner/provider_smoke.py"
+      - "scripts/build_provider_smoke_request.py"
   push:
     branches: [main]
     paths:
@@ -19,7 +25,9 @@ concurrency:
 
 jobs:
   smoke:
-    if: github.actor == github.repository_owner && github.ref == 'refs/heads/main'
+    if: >-
+      github.actor == github.repository_owner &&
+      (github.event_name == 'pull_request' || github.ref == 'refs/heads/main')
     strategy:
       fail-fast: false
       max-parallel: 4
@@ -44,7 +52,7 @@ jobs:
         env:
           SEALED_JOB_KEY_B64: ${{ secrets.SEALED_JOB_KEY_B64 }}
         run: |
-          python scripts/build_provider_smoke_request.py \
+          python -m scripts.build_provider_smoke_request \
             --task "${{ matrix.task }}" \
             --run-id "${{ github.run_id }}" \
             --config config/provider_smoke_v1.json \
@@ -57,7 +65,7 @@ jobs:
           ZZSHARE_TOKEN: ${{ secrets.ZZSHARE_TOKEN }}
           PYTHONUNBUFFERED: "1"
         run: |
-          python scripts/run_sealed_job.py \
+          python -m scripts.run_sealed_job \
             --job-id "${{ steps.request.outputs.job_id }}" \
             --group "${{ matrix.group }}" \
             --output-dir sealed-output
