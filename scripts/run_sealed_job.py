@@ -9,8 +9,10 @@ from pathlib import Path
 from public_runner.contract import validate_request
 from public_runner.sealed_protocol import (
     canonical_json,
+    compress_payload,
     decode_key,
     decode_transport,
+    decompress_payload,
     request_aad,
     result_aad,
     seal_bytes,
@@ -31,10 +33,15 @@ def main() -> int:
     if hashlib.sha256(blob).hexdigest() != expected_digest:
         raise RuntimeError("sealed request digest mismatch")
     key = decode_key(os.environ["SEALED_JOB_KEY_B64"])
-    plaintext = unseal_bytes(blob, key, request_aad(args.job_id))
+    compressed = unseal_bytes(blob, key, request_aad(args.job_id))
+    plaintext = decompress_payload(compressed)
     request = validate_request(json.loads(plaintext.decode("utf-8")), args.job_id)
     result = run_group(request, args.group)
-    sealed = seal_bytes(canonical_json(result), key, result_aad(args.job_id, args.group))
+    sealed = seal_bytes(
+        compress_payload(canonical_json(result)),
+        key,
+        result_aad(args.job_id, args.group),
+    )
     args.output_dir.mkdir(parents=True, exist_ok=True)
     output = args.output_dir / f"result-g{args.group}.asr"
     output.write_bytes(sealed)
@@ -44,4 +51,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

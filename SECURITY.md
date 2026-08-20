@@ -14,3 +14,7 @@ Do not add strategy source, factor definitions, rankings, account identifiers,
 positions, holdings, acceptance thresholds or live-trading credentials to this
 repository. Plaintext job contents must never be printed.
 
+Compressed payloads are authenticated before decompression and have a fixed
+uncompressed-size ceiling. Oversized jobs must be partitioned by the private
+control plane; the public runner must never raise that ceiling to bypass the
+dispatch or memory boundary.

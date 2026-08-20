@@ -7,6 +7,10 @@ daily order/account replay inside an ephemeral GitHub-hosted runner, and uploads
 only sealed results. Strategy selection, parameters, rankings, account identity
 and acceptance gates remain in the private repository.
 
+JSON workloads and results are deterministically gzip-compressed before sealing.
+Large historical runs must be split into digest-bound batches by the private
+control plane so workflow inputs remain within the dispatch safety limit.
+
 ## Security boundary
 
 - Manual `workflow_dispatch` only; owner and `main` only.
@@ -29,4 +33,3 @@ log or repository file.
 python -m pip install -r requirements.txt
 python -m unittest discover -s tests -v
 ```
-

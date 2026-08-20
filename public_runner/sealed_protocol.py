@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import base64
+import gzip
 import hashlib
+import io
 import json
 import os
 import struct
@@ -12,6 +14,7 @@ from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
 MAGIC = b"ASR1"
 MAX_HEADER_BYTES = 16 * 1024
+MAX_UNCOMPRESSED_BYTES = 64 * 1024 * 1024
 
 
 class ProtocolError(RuntimeError):
@@ -100,6 +103,25 @@ def unseal_bytes(blob: bytes, key: bytes, aad: bytes) -> bytes:
     return plaintext
 
 
+def compress_payload(plaintext: bytes) -> bytes:
+    return gzip.compress(plaintext, compresslevel=9, mtime=0)
+
+
+def decompress_payload(
+    compressed: bytes,
+    *,
+    max_bytes: int = MAX_UNCOMPRESSED_BYTES,
+) -> bytes:
+    try:
+        with gzip.GzipFile(fileobj=io.BytesIO(compressed), mode="rb") as handle:
+            plaintext = handle.read(max_bytes + 1)
+    except (OSError, EOFError) as exc:
+        raise ProtocolError("compressed payload is invalid") from exc
+    if len(plaintext) > max_bytes:
+        raise ProtocolError("compressed payload exceeds the safety limit")
+    return plaintext
+
+
 def encode_transport(blob: bytes) -> str:
     return base64.b64encode(blob).decode("ascii")
 
@@ -109,4 +131,3 @@ def decode_transport(value: str) -> bytes:
         return base64.b64decode(value, validate=True)
     except (ValueError, TypeError) as exc:
         raise ProtocolError("workflow payload is not valid base64") from exc
-
