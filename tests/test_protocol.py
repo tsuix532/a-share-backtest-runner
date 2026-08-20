@@ -2,7 +2,14 @@ from __future__ import annotations
 
 import unittest
 
-from public_runner.sealed_protocol import ProtocolError, request_aad, seal_bytes, unseal_bytes
+from public_runner.sealed_protocol import (
+    ProtocolError,
+    compress_payload,
+    decompress_payload,
+    request_aad,
+    seal_bytes,
+    unseal_bytes,
+)
 
 
 class ProtocolTests(unittest.TestCase):
@@ -20,7 +27,12 @@ class ProtocolTests(unittest.TestCase):
         with self.assertRaises(ProtocolError):
             unseal_bytes(bytes(blob), key, request_aad("1" * 32))
 
+    def test_compressed_payload_is_bounded(self) -> None:
+        compressed = compress_payload(b"a" * 100)
+        self.assertEqual(decompress_payload(compressed, max_bytes=100), b"a" * 100)
+        with self.assertRaises(ProtocolError):
+            decompress_payload(compressed, max_bytes=99)
+
 
 if __name__ == "__main__":
     unittest.main()
-
