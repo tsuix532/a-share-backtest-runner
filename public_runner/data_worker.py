@@ -71,6 +71,11 @@ def _finite_number(value: Any) -> float | None:
     return normalized if math.isfinite(normalized) else None
 
 
+def _positive_number(value: Any) -> float | None:
+    normalized = _finite_number(value)
+    return normalized if normalized is not None and normalized > 0 else None
+
+
 def _flag(value: Any) -> bool | None:
     if value is None:
         return None
@@ -236,14 +241,18 @@ def _market_rows(
             "high": high,
             "low": low,
             "close": close,
-            "pre_close": _finite_number(_pick(row, ("pre_close", "preclose"))),
+            "pre_close": _positive_number(
+                _pick(row, ("pre_close", "prev_close", "preclose"))
+            ),
             "volume": volume,
             "amount": _finite_number(_pick(row, ("turnover", "amount"))),
             "turnover_rate": _finite_number(_pick(row, ("turnover_rate", "turn"))),
-            "adjustment_factor": _finite_number(_pick(row, ("factor", "adjustment_factor"))),
+            "adjustment_factor": _positive_number(
+                _pick(row, ("factor", "adjustment_factor"))
+            ),
             "tradable": paused is not True and (volume is None or volume > 0),
-            "limit_up": _finite_number(_pick(row, ("high_limit", "limit_up"))),
-            "limit_down": _finite_number(_pick(row, ("low_limit", "limit_down"))),
+            "limit_up": _positive_number(_pick(row, ("high_limit", "limit_up"))),
+            "limit_down": _positive_number(_pick(row, ("low_limit", "limit_down"))),
             "is_st": bool(is_st),
             "total_market_cap": caps.get(symbol),
         }
