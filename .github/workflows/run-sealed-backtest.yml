@@ -1,4 +1,4 @@
-name: Sealed Daily Batch Backtest
+name: Sealed A-share Batch Workload
 
 on:
   workflow_dispatch:
@@ -20,7 +20,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: sealed-daily-backtest-${{ inputs.job_id }}
+  group: sealed-a-share-workload-${{ inputs.job_id }}
   cancel-in-progress: false
 
 jobs:
@@ -44,11 +44,12 @@ jobs:
       - run: >-
           python -m pip install --disable-pip-version-check --no-cache-dir
           --only-binary=:all: --requirement requirements.txt
-      - name: Run sealed replay
+      - name: Run sealed workload
         env:
           SEALED_JOB_B64: ${{ inputs.sealed_job_b64 }}
           SEALED_JOB_SHA256: ${{ inputs.sealed_job_sha256 }}
           SEALED_JOB_KEY_B64: ${{ secrets.SEALED_JOB_KEY_B64 }}
+          ZZSHARE_TOKEN: ${{ secrets.ZZSHARE_TOKEN }}
           PYTHONUNBUFFERED: "1"
         run: |
           python scripts/run_sealed_job.py \
@@ -64,4 +65,3 @@ jobs:
           if-no-files-found: error
           retention-days: 1
           compression-level: 0
-

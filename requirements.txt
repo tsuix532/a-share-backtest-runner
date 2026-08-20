@@ -1,2 +1,3 @@
 cryptography==45.0.6
-
+pandas>=2.2,<3
+zzshare==0.4.9

@@ -14,6 +14,11 @@ Do not add strategy source, factor definitions, rankings, account identifiers,
 positions, holdings, acceptance thresholds or live-trading credentials to this
 repository. Plaintext job contents must never be printed.
 
+`ZZSHARE_TOKEN` is optional and is only a data-provider credential. If used, it
+must be a repository secret and must never appear in a request, result, log or
+artifact. Provider errors are recorded by exception class only so URLs or
+credentials cannot be reflected into ciphertext metadata or logs.
+
 Compressed payloads are authenticated before decompression and have a fixed
 uncompressed-size ceiling. Oversized jobs must be partitioned by the private
 control plane; the public runner must never raise that ceiling to bypass the

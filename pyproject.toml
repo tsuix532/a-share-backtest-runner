@@ -5,10 +5,13 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "a-share-backtest-runner"
 version = "0.1.0"
-description = "Strategy-blind sealed daily order replay runner"
+description = "Strategy-blind sealed A-share data and daily replay runner"
 requires-python = ">=3.11"
-dependencies = ["cryptography==45.0.6"]
+dependencies = [
+  "cryptography==45.0.6",
+  "pandas>=2.2,<3",
+  "zzshare==0.4.9",
+]
 
 [tool.setuptools.packages.find]
 include = ["public_runner*"]
-
