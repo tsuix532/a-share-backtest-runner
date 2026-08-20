@@ -52,7 +52,7 @@ jobs:
         env:
           SEALED_JOB_KEY_B64: ${{ secrets.SEALED_JOB_KEY_B64 }}
         run: |
-          python scripts/build_provider_smoke_request.py \
+          python -m scripts.build_provider_smoke_request \
             --task "${{ matrix.task }}" \
             --run-id "${{ github.run_id }}" \
             --config config/provider_smoke_v1.json \
@@ -65,7 +65,7 @@ jobs:
           ZZSHARE_TOKEN: ${{ secrets.ZZSHARE_TOKEN }}
           PYTHONUNBUFFERED: "1"
         run: |
-          python scripts/run_sealed_job.py \
+          python -m scripts.run_sealed_job \
             --job-id "${{ steps.request.outputs.job_id }}" \
             --group "${{ matrix.group }}" \
             --output-dir sealed-output

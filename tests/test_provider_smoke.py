@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+import subprocess
+import sys
 import unittest
 
 from public_runner.data_contract import validate_data_request
@@ -54,6 +56,20 @@ class ProviderSmokeTests(unittest.TestCase):
         )
         request = json.loads(plaintext.decode("utf-8"))
         self.assertEqual(request["task"], "daily_market_snapshot_v1")
+
+    def test_workflow_entry_points_resolve_the_package(self) -> None:
+        for module in (
+            "scripts.build_provider_smoke_request",
+            "scripts.run_sealed_job",
+        ):
+            completed = subprocess.run(
+                [sys.executable, "-m", module, "--help"],
+                cwd=ROOT,
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(completed.returncode, 0, completed.stderr)
 
 
 if __name__ == "__main__":

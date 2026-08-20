@@ -52,7 +52,7 @@ jobs:
           ZZSHARE_TOKEN: ${{ secrets.ZZSHARE_TOKEN }}
           PYTHONUNBUFFERED: "1"
         run: |
-          python scripts/run_sealed_job.py \
+          python -m scripts.run_sealed_job \
             --job-id "${{ inputs.job_id }}" \
             --group "${{ matrix.group }}" \
             --output-dir sealed-output
