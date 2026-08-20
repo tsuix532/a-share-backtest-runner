@@ -2,6 +2,12 @@ name: Real Provider Smoke
 
 on:
   workflow_dispatch:
+  pull_request:
+    paths:
+      - ".github/workflows/provider-smoke.yml"
+      - "config/provider_smoke_v1.json"
+      - "public_runner/provider_smoke.py"
+      - "scripts/build_provider_smoke_request.py"
   push:
     branches: [main]
     paths:
@@ -19,7 +25,9 @@ concurrency:
 
 jobs:
   smoke:
-    if: github.actor == github.repository_owner && github.ref == 'refs/heads/main'
+    if: >-
+      github.actor == github.repository_owner &&
+      (github.event_name == 'pull_request' || github.ref == 'refs/heads/main')
     strategy:
       fail-fast: false
       max-parallel: 4
