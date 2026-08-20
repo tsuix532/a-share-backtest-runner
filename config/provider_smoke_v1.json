@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "provider": "zzshare-0.4.9",
+  "market": {
+    "start_date": "2026-08-18",
+    "end_date": "2026-08-18",
+    "venues": ["SH", "SZ"]
+  },
+  "financial": {
+    "table": "indicator",
+    "periods": ["2025q4"]
+  }
+}
