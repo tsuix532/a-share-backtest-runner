@@ -21,9 +21,15 @@ control plane so workflow inputs remain within the dispatch safety limit.
 The provider interface is pinned to `zzshare==0.4.9`; anonymous use is allowed,
 while an optional `ZZSHARE_TOKEN` repository secret may raise provider limits.
 
+Real Provider Smoke builds its generic request inside GitHub Actions, runs one
+bounded market date and one financial period across the same four-group
+contract, and uploads ciphertext only. A merge touching the smoke definition
+triggers it automatically on main; later reruns may use workflow dispatch.
+
 ## Security boundary
 
-- Manual `workflow_dispatch` only; owner and `main` only.
+- Owner and `main` only; sealed batches use manual dispatch, while the bounded
+  provider smoke also runs automatically when its definition changes on main.
 - Read-only workflow token and immutable action pins.
 - Plaintext exists only in runner memory/ephemeral disk.
 - Logs contain job id, group, case count and status only.
