@@ -99,5 +99,5 @@ jobs:
           name: historical-${{ needs.prepare.outputs.collection_id }}-${{ matrix.entry_id }}-${{ steps.request.outputs.job_id }}-g${{ matrix.group }}
           path: sealed-output/*.asr
           if-no-files-found: error
-          retention-days: 1
+          retention-days: 2
           compression-level: 0
