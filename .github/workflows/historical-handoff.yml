@@ -1,0 +1,107 @@
+name: Historical Ciphertext Handoff
+
+on:
+  workflow_run:
+    workflows: ["Historical Data Collection Pilot"]
+    types: [completed]
+  schedule:
+    - cron: "41 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    if: >-
+      github.event_name == 'workflow_run' &&
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.head_branch == 'main'
+    permissions:
+      actions: read
+      contents: write
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Download ciphertext artifacts from the completed collection run
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          pattern: historical-*
+          path: handoff-input
+          github-token: ${{ github.token }}
+          run-id: ${{ github.event.workflow_run.id }}
+      - name: Build bounded ciphertext-only handoff bundle
+        id: bundle
+        run: |
+          collection=$(python -c 'import json; print(json.load(open("config/historical_collection_pilot_v1.json", encoding="utf-8"))["collection_id"])')
+          run_id="${{ github.event.workflow_run.id }}"
+          expected_prefix="historical-${collection}-"
+          mapfile -t dirs < <(find handoff-input -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | sort)
+          if [[ ${#dirs[@]} -eq 0 ]]; then
+            echo "no ciphertext artifacts were downloaded" >&2
+            exit 1
+          fi
+          for dir in "${dirs[@]}"; do
+            [[ "$dir" == "$expected_prefix"* ]] || { echo "unexpected artifact directory: $dir" >&2; exit 1; }
+            count=$(find "handoff-input/$dir" -maxdepth 1 -type f -name '*.asr' | wc -l)
+            [[ "$count" -eq 1 ]] || { echo "artifact $dir must contain exactly one .asr file" >&2; exit 1; }
+            if find "handoff-input/$dir" -maxdepth 1 -type f ! -name '*.asr' -print -quit | grep -q .; then
+              echo "artifact $dir contains a non-ciphertext file" >&2
+              exit 1
+            fi
+          done
+          bundle="historical-handoff-${collection}-${run_id}.tar.gz"
+          tar --sort=name --mtime='UTC 1970-01-01' --owner=0 --group=0 --numeric-owner -czf "$bundle" -C handoff-input .
+          sha256sum "$bundle" > "$bundle.sha256"
+          echo "collection=$collection" >> "$GITHUB_OUTPUT"
+          echo "bundle=$bundle" >> "$GITHUB_OUTPUT"
+          echo "artifact_count=${#dirs[@]}" >> "$GITHUB_OUTPUT"
+      - name: Publish short-lived ciphertext prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="handoff-${{ steps.bundle.outputs.collection }}-${{ github.event.workflow_run.id }}"
+          gh release create "$tag" \
+            "${{ steps.bundle.outputs.bundle }}" \
+            "${{ steps.bundle.outputs.bundle }}.sha256" \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "${{ github.event.workflow_run.head_sha }}" \
+            --title "Ciphertext handoff ${{ steps.bundle.outputs.collection }} / ${{ github.event.workflow_run.id }}" \
+            --notes "Temporary ciphertext-only handoff from historical collection run ${{ github.event.workflow_run.id }}. No strategy source, acceptance gates, account state, credentials, or plaintext provider data are included. Scheduled cleanup removes old handoffs." \
+            --prerelease
+
+  cleanup:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    permissions:
+      contents: write
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Delete expired ciphertext handoff releases
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cutoff=$(date -u -d '72 hours ago' +%s)
+          gh release list --repo "$GITHUB_REPOSITORY" --limit 100 --json tagName,createdAt,isPrerelease > releases.json
+          python - "$cutoff" <<'PY' > expired.txt
+          import datetime as dt
+          import json
+          import sys
+
+          cutoff = int(sys.argv[1])
+          for release in json.load(open("releases.json", encoding="utf-8")):
+              tag = release.get("tagName", "")
+              created = release.get("createdAt", "")
+              if not release.get("isPrerelease") or not tag.startswith("handoff-"):
+                  continue
+              when = dt.datetime.fromisoformat(created.replace("Z", "+00:00"))
+              if int(when.timestamp()) < cutoff:
+                  print(tag)
+          PY
+          while IFS= read -r tag; do
+            [[ -n "$tag" ]] || continue
+            gh release delete "$tag" --repo "$GITHUB_REPOSITORY" --cleanup-tag --yes
+          done < expired.txt
