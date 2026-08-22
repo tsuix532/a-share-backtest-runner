@@ -27,6 +27,14 @@ contract, and uploads ciphertext only. A merge touching the smoke definition
 triggers it automatically through the owner PR and on main; later reruns may
 use workflow dispatch.
 
+Historical Data Collection Pilot freezes a small, reviewable manifest before
+starting any long run. The current pilot contains two bounded market windows
+and one financial batch. Each entry is deterministically identified, split into
+four ciphertext shards, limited to two concurrent provider jobs, and retained
+for one day. A private importer must authenticate and checkpoint every shard
+before the next cohort is allowed to start. Raw provider data is never committed
+to this public repository.
+
 ## Security boundary
 
 - Owner-controlled same-repository PR or `main` only; sealed batches use
@@ -42,6 +50,9 @@ use workflow dispatch.
   and acceptance gates remain private.
 - A retryable provider result makes its matrix job fail after writing the
   ciphertext result, so the failed group is visible and can be resumed.
+- Historical cohorts are intentionally small enough to download and verify
+  before one-day Actions artifacts expire; the durable manifest and admission
+  decision live in the private control plane.
 
 ## Required secret
 
