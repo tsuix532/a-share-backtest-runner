@@ -4,6 +4,10 @@ on:
   workflow_run:
     workflows: ["Historical Data Collection Pilot"]
     types: [completed]
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/historical-handoff.yml"
   schedule:
     - cron: "41 3 * * *"
   workflow_dispatch:
@@ -14,9 +18,10 @@ permissions:
 jobs:
   publish:
     if: >-
-      github.event_name == 'workflow_run' &&
-      github.event.workflow_run.conclusion == 'success' &&
-      github.event.workflow_run.head_branch == 'main'
+      (github.event_name == 'workflow_run' &&
+       github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.head_branch == 'main') ||
+      (github.event_name == 'push' && github.ref == 'refs/heads/main')
     permissions:
       actions: read
       contents: write
@@ -26,18 +31,67 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
           persist-credentials: false
-      - name: Download ciphertext artifacts from the completed collection run
+      - name: Resolve a successful main historical collection run
+        id: source
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          collection=$(python -c 'import json; print(json.load(open("config/historical_collection_pilot_v1.json", encoding="utf-8"))["collection_id"])')
+          echo "collection=$collection" >> "$GITHUB_OUTPUT"
+          if [[ "$GITHUB_EVENT_NAME" == "workflow_run" ]]; then
+            echo "run_id=${{ github.event.workflow_run.id }}" >> "$GITHUB_OUTPUT"
+            echo "head_sha=${{ github.event.workflow_run.head_sha }}" >> "$GITHUB_OUTPUT"
+          else
+            gh api \
+              "repos/$GITHUB_REPOSITORY/actions/workflows/historical-collection.yml/runs?branch=main&status=success&per_page=20" \
+              > historical-runs.json
+            python - <<'PY' >> "$GITHUB_OUTPUT"
+          import json
+          import sys
+
+          payload = json.load(open("historical-runs.json", encoding="utf-8"))
+          for run in payload.get("workflow_runs", []):
+              if (
+                  run.get("head_branch") == "main"
+                  and run.get("conclusion") == "success"
+                  and isinstance(run.get("id"), int)
+                  and isinstance(run.get("head_sha"), str)
+              ):
+                  print(f"run_id={run['id']}")
+                  print(f"head_sha={run['head_sha']}")
+                  break
+          else:
+              print("no successful main historical collection run exists", file=sys.stderr)
+              raise SystemExit(1)
+          PY
+          fi
+      - name: Check whether this handoff already exists
+        id: existing
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="handoff-${{ steps.source.outputs.collection }}-${{ steps.source.outputs.run_id }}"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "Handoff $tag already exists; publish is idempotently complete."
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Download ciphertext artifacts from the resolved collection run
+        if: steps.existing.outputs.exists != 'true'
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
         with:
           pattern: historical-*
           path: handoff-input
           github-token: ${{ github.token }}
-          run-id: ${{ github.event.workflow_run.id }}
+          run-id: ${{ steps.source.outputs.run_id }}
       - name: Build bounded ciphertext-only handoff bundle
+        if: steps.existing.outputs.exists != 'true'
         id: bundle
         run: |
-          collection=$(python -c 'import json; print(json.load(open("config/historical_collection_pilot_v1.json", encoding="utf-8"))["collection_id"])')
-          run_id="${{ github.event.workflow_run.id }}"
+          collection="${{ steps.source.outputs.collection }}"
+          run_id="${{ steps.source.outputs.run_id }}"
           expected_prefix="historical-${collection}-"
           mapfile -t dirs < <(find handoff-input -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | sort)
           if [[ ${#dirs[@]} -eq 0 ]]; then
@@ -56,21 +110,20 @@ jobs:
           bundle="historical-handoff-${collection}-${run_id}.tar.gz"
           tar --sort=name --mtime='UTC 1970-01-01' --owner=0 --group=0 --numeric-owner -czf "$bundle" -C handoff-input .
           sha256sum "$bundle" > "$bundle.sha256"
-          echo "collection=$collection" >> "$GITHUB_OUTPUT"
           echo "bundle=$bundle" >> "$GITHUB_OUTPUT"
           echo "artifact_count=${#dirs[@]}" >> "$GITHUB_OUTPUT"
       - name: Publish short-lived ciphertext prerelease
+        if: steps.existing.outputs.exists != 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          tag="handoff-${{ steps.bundle.outputs.collection }}-${{ github.event.workflow_run.id }}"
-          gh release create "$tag" \
+          gh release create "${{ steps.existing.outputs.tag }}" \
             "${{ steps.bundle.outputs.bundle }}" \
             "${{ steps.bundle.outputs.bundle }}.sha256" \
             --repo "$GITHUB_REPOSITORY" \
-            --target "${{ github.event.workflow_run.head_sha }}" \
-            --title "Ciphertext handoff ${{ steps.bundle.outputs.collection }} / ${{ github.event.workflow_run.id }}" \
-            --notes "Temporary ciphertext-only handoff from historical collection run ${{ github.event.workflow_run.id }}. No strategy source, acceptance gates, account state, credentials, or plaintext provider data are included. Scheduled cleanup removes old handoffs." \
+            --target "${{ steps.source.outputs.head_sha }}" \
+            --title "Ciphertext handoff ${{ steps.source.outputs.collection }} / ${{ steps.source.outputs.run_id }}" \
+            --notes "Temporary ciphertext-only handoff from historical collection run ${{ steps.source.outputs.run_id }}. No strategy source, acceptance gates, account state, credentials, or plaintext provider data are included. Scheduled cleanup removes old handoffs." \
             --prerelease
 
   cleanup:

@@ -79,7 +79,7 @@ class HistoricalCollectionTests(unittest.TestCase):
             ROOT / ".github" / "workflows" / "historical-collection.yml"
         ).read_text(encoding="utf-8")
         self.assertIn("max-parallel: 2", workflow)
-        self.assertIn("retention-days: 1", workflow)
+        self.assertIn("retention-days: 2", workflow)
         self.assertIn("path: sealed-output/*.asr", workflow)
         self.assertNotIn("upload-artifact@v", workflow)
 
